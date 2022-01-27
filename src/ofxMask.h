@@ -28,7 +28,7 @@ public:
 		LUMINANCE
 	};
 	void allocate(const ofFbo::Settings &settings, Type type);
-	void allocate(int width, int height, Type type);
+	void allocate(int width, int height, Type type, int antiAliasSamples = 0, int textureTarget = GL_TEXTURE_RECTANGLE_ARB);
 	bool isAllocated() const { return fbo_.isAllocated(); }
 	float getWidth() const { return fbo_.getWidth(); }
 	float getHeight() const { return fbo_.getHeight(); }

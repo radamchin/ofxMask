@@ -107,9 +107,11 @@ void ofxMask::allocate(const ofFbo::Settings &settings, Type type)
 	makeTexCoords(tex_coords_, fbo_.getTexture().getTextureData());
 }
 
-void ofxMask::allocate(int width, int height, Type type)
+void ofxMask::allocate(int width, int height, Type type, int antiAliasSamples, int textureTarget)
 {
 	ofFbo::Settings s;
+    s.numSamples = min(antiAliasSamples, ofFbo::maxSamples());
+    s.textureTarget = textureTarget;
 	s.width = width;
 	s.height = height;
 	allocate(s, type);
