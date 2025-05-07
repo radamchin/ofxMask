@@ -1,5 +1,6 @@
 #include "ofxMask.h"
 #include "ofGraphics.h"
+#include "ofMain.h"
 
 using namespace std;
 using namespace ofx::mask;
@@ -12,81 +13,98 @@ void Shader::begin(const ofTexture &masker, const ofTexture &maskee)
 }
 AlphaShader::AlphaShader()
 {
-#define _S(a) #a
-	string shader_src = _S(
-						   uniform sampler2DRect masker;
-						   uniform sampler2DRect maskee;
-						   void main()
-						   {
-							   gl_FragColor = texture2DRect(maskee, gl_TexCoord[0].st);
-							   gl_FragColor.a *= texture2DRect(masker, gl_TexCoord[0].st).a;
-						   }
-						   );
-#undef _S
-	setupShaderFromSource(GL_FRAGMENT_SHADER, shader_src);
-	linkProgram();
+     if(ofIsGLProgrammableRenderer()){
+         string vertex = "#version 150\n\
+                         uniform mat4 projectionMatrix;\n\
+                         uniform mat4 modelViewMatrix;\n\
+                         uniform mat4 modelViewProjectionMatrix;\n\
+                         in vec4  position;\n\
+                         in vec2  texcoord;\n\
+                         out vec2 texCoordVarying;\n\
+                         void main(){\n\
+                             texCoordVarying = texcoord;\
+                             gl_Position = modelViewProjectionMatrix * position;\n\
+                         }";
+         
+         string fragment =  "#version 150\n\
+                             uniform sampler2DRect masker;\
+                             uniform sampler2DRect maskee;\
+                             in vec2 texCoordVarying;\n\
+                             out vec4 fragColor;\n\
+                             void main (void){\n\
+                                fragColor = texture(masker, texCoordVarying);\n\
+                                //fragColor.a *= texture(maskee, texCoordVarying).a;\n\
+                                //fragColor = vec4(1.0,0.0,0.0,0.8); // red \n\
+                                //fragColor.a = 0.5;\n\
+                             }";
+         
+         setupShaderFromSource(GL_VERTEX_SHADER, vertex);
+         setupShaderFromSource(GL_FRAGMENT_SHADER, fragment);
+         bindDefaults();
+         linkProgram();
+         
+     }else{
+         
+         string shaderProgram = "#version 110\n\
+                                 #extension GL_ARB_texture_rectangle : enable\n\
+                                 uniform sampler2DRect masker;\
+                                 uniform sampler2DRect maskee;\
+                                 void main (void){\
+                                    gl_FragColor = texture2DRect(maskee, gl_TexCoord[0].st);\
+                                    gl_FragColor.a *= texture2DRect(masker, gl_TexCoord[0].st).a;\
+                                 }";
+         setupShaderFromSource(GL_FRAGMENT_SHADER, shaderProgram);
+         linkProgram();
+     }
+    
 }
 LuminanceShader::LuminanceShader()
 {
-#define _S(a) #a
-	string shader_src = _S(
-						   uniform sampler2DRect masker;
-						   uniform sampler2DRect maskee;
-						   void main()
-						   {
-							   gl_FragColor = texture2DRect(maskee, gl_TexCoord[0].st);
-							   vec4 rgb = texture2DRect(masker, gl_TexCoord[0].st);
-							   gl_FragColor.a *= 0.298912*rgb.r + 0.586611*rgb.g + 0.114478*rgb.b;
-						   }
-						   );
-#undef _S
-	setupShaderFromSource(GL_FRAGMENT_SHADER, shader_src);
-	linkProgram();
-}
-namespace {
-void makeVertices(float *dst, const ofTextureData& texture_data) 
-{
-	dst[0] =
-	dst[1] =
-	dst[3] =
-	dst[6] = 0;
-	dst[2] =
-	dst[4] = texture_data.width;
-	dst[5] =
-	dst[7] = texture_data.height;
-}
-void makeVertices(float *dst, float x, float y, float w, float h) 
-{
-	dst[0] =
-	dst[6] = x;
-	dst[1] =
-	dst[3] = y;
-	dst[2] =
-	dst[4] = w;
-	dst[5] =
-	dst[7] = h;
-}
-void makeTexCoords(float *dst, const ofTextureData& texture_data)
-{
-	dst[0] =
-	dst[1] =
-	dst[3] =
-	dst[6] = 0;
-#ifndef TARGET_OPENGLES
-	if( texture_data.textureTarget==GL_TEXTURE_RECTANGLE_ARB && ofGLSupportsNPOTTextures() ){
-		dst[2] =
-		dst[4] = texture_data.width;
-		dst[5] =
-		dst[7] = texture_data.height;
-	}else
-#endif
-	{
-		dst[2] =
-		dst[4] = texture_data.tex_t;
-		dst[5] =
-		dst[7] = texture_data.tex_u;
-	}
-}
+    if(ofIsGLProgrammableRenderer()){
+        string vertex = "#version 150\n\
+                        uniform mat4 projectionMatrix;\n\
+                        uniform mat4 modelViewMatrix;\n\
+                        uniform mat4 modelViewProjectionMatrix;\n\
+                        in vec4 position;\n\
+                        in vec2 texcoord;\n\
+                        out vec2 texCoordVarying;\n\
+                        void main(){\n\
+                            texCoordVarying = texcoord;\
+                            gl_Position = modelViewProjectionMatrix * position;\n\
+                        }";
+        
+        string fragment =  "#version 150\n\
+                            uniform sampler2DRect masker;\
+                            uniform sampler2DRect maskee;\
+                            in vec2 texCoordVarying;\n\
+                            out vec4 fragColor;\n\
+                            void main (void){\n\
+                                fragColor = texture(maskee, texCoordVarying);\
+                                vec4 col = texture(masker, texCoordVarying);\
+                                fragColor.a *= 0.298912*col.r + 0.586611*col.g + 0.114478*col.b;\n\
+                                //fragColor = vec4(1.0,0.0,0.0,0.9); // red \n\
+                            }";
+        
+        setupShaderFromSource(GL_VERTEX_SHADER, vertex);
+        setupShaderFromSource(GL_FRAGMENT_SHADER, fragment);
+        bindDefaults();
+        linkProgram();
+        
+    }else{
+        
+        string shaderProgram = "#version 110\n\
+                                #extension GL_ARB_texture_rectangle : enable\n\
+                                uniform sampler2DRect masker;\
+                                uniform sampler2DRect maskee;\
+                                void main(){\n\
+                                    gl_FragColor = texture2DRect(maskee, gl_TexCoord[0].st);\
+                                    vec4 rgb = texture2DRect(masker, gl_TexCoord[0].st);\
+                                    gl_FragColor.a *= 0.298912*rgb.r + 0.586611*rgb.g + 0.114478*rgb.b;\n\
+                                }";
+        setupShaderFromSource(GL_FRAGMENT_SHADER, shaderProgram);
+        linkProgram();
+    }
+    
 }
 
 void ofxMask::allocate(const ofFbo::Settings &settings, Type type)
@@ -104,7 +122,7 @@ void ofxMask::allocate(const ofFbo::Settings &settings, Type type)
 			ofLogError("ofxMask allocate failed.");
 			break;
 	}
-	makeTexCoords(tex_coords_, fbo_.getTexture().getTextureData());
+	// makeTexCoords(tex_coords_, fbo_.getTexture().getTextureData());
 }
 
 void ofxMask::allocate(int width, int height, Type type, int antiAliasSamples, int textureTarget)
@@ -164,17 +182,18 @@ void ofxMask::draw(float x, float y) const
 }
 void ofxMask::draw(float x, float y, float w, float h) const
 {
-	float vertices[8];
-	makeVertices(vertices, x,y,w,h);
+	//float vertices[8];
+	//makeVertices(vertices, x,y,w,h);
 	ofPushStyle();
-	glBlendFuncSeparate(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	shader_->begin(getMaskerTexture(), getMaskeeTexture());
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	glTexCoordPointer(2, GL_FLOAT, 0, tex_coords_);
-	glEnableClientState(GL_VERTEX_ARRAY);		
-	glVertexPointer(2, GL_FLOAT, 0, vertices);
-	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    fbo_.draw(x,y,w,h);
+	//glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	//glTexCoordPointer(2, GL_FLOAT, 0, tex_coords_);
+	//glEnableClientState(GL_VERTEX_ARRAY);
+	//glVertexPointer(2, GL_FLOAT, 0, vertices);
+	//glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+	//glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 	shader_->end();
 	ofPopStyle();
 }
@@ -191,7 +210,7 @@ void ofxMask::drawMasker(float x, float y) const
 void ofxMask::drawMasker(float x, float y, float w, float h) const
 {
 	ofPushStyle();
-	glBlendFuncSeparate(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	//glBlendFuncSeparate(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	getMaskerTexture().draw(x,y,w,h);
 	ofPopStyle();
 }
@@ -206,7 +225,7 @@ void ofxMask::drawMaskee(float x, float y) const
 void ofxMask::drawMaskee(float x, float y, float w, float h) const
 {
 	ofPushStyle();
-	glBlendFuncSeparate(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	//glBlendFuncSeparate(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA,GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	getMaskeeTexture().draw(x,y,w,h);
 	ofPopStyle();
 }
